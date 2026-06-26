@@ -27,18 +27,34 @@ type Theme = 'dark' | 'light'
 
 const isFile = (raw: string) => FILES.some((f) => f.id === raw)
 
-// Update the URL hash without scrolling/adding history entries.
-const syncHash = (id: string | null) => {
-  if (id) window.history.replaceState(null, '', `#${id}`)
-  else window.history.replaceState(null, '', window.location.pathname + window.location.search)
+// ── Path-based routing (e.g. /projects). Home is "/". ─────────────────────
+const idToPath = (id: string | null) => (id ? `/${id}` : '/')
+
+const pathToId = (pathname: string): string | null => {
+  const seg = pathname.replace(/^\/+/, '').split('/')[0]
+  return isFile(seg) ? seg : null
+}
+
+// Resolve the file (or home) to show on first load, honouring legacy /#id links.
+const resolveInitialId = (): string | null => {
+  const fromPath = pathToId(window.location.pathname)
+  if (fromPath) return fromPath
+  const legacyHash = window.location.hash.replace('#', '')
+  return isFile(legacyHash) ? legacyHash : null
+}
+
+const navigate = (id: string | null, replace = false) => {
+  const path = idToPath(id) + window.location.search
+  const same = window.location.pathname === idToPath(id) && !window.location.hash
+  if (same && !replace) return
+  window.history[replace ? 'replaceState' : 'pushState'](null, '', path)
 }
 
 export default function App() {
-  const hashId = window.location.hash.replace('#', '')
-  const initial = isFile(hashId) ? hashId : FILES[0].id
+  const initial = resolveInitialId()
 
   const [activeId, setActiveId] = useState<string | null>(initial)
-  const [openIds, setOpenIds] = useState<string[]>([initial])
+  const [openIds, setOpenIds] = useState<string[]>(initial ? [initial] : [])
   const [paletteOpen, setPaletteOpen] = useState(false)
   // Terminal is decorative; keep it closed by default on small screens.
   const [termOpen, setTermOpen] = useState(() => window.innerWidth > 640)
@@ -59,7 +75,7 @@ export default function App() {
     setActiveId(id)
     setOpenIds((ids) => (ids.includes(id) ? ids : [...ids, id]))
     setNavOpen(false)
-    syncHash(id)
+    navigate(id)
   }
 
   const closeTab = (id: string, e: React.MouseEvent) => {
@@ -70,9 +86,26 @@ export default function App() {
     if (id === activeId) {
       const nextActive = next.length ? next[Math.min(idx, next.length - 1)] : null
       setActiveId(nextActive)
-      syncHash(nextActive)
+      navigate(nextActive)
     }
   }
+
+  // Normalise a legacy /#id URL to a clean path on first load.
+  useEffect(() => {
+    if (window.location.hash) navigate(initial, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Sync state with browser back/forward navigation.
+  useEffect(() => {
+    const onPop = () => {
+      const id = pathToId(window.location.pathname)
+      setActiveId(id)
+      if (id) setOpenIds((ids) => (ids.includes(id) ? ids : [...ids, id]))
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   // Global keyboard: ⌘K / Ctrl-K toggles the command palette.
   useEffect(() => {
