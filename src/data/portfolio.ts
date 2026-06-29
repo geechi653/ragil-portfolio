@@ -10,7 +10,7 @@ export const profile = {
   email: 'ragil.mmdv653@gmail.com',
   phone: '+1-919-946-3996',
   linkedin: 'https://linkedin.com/in/ragil-mammadov',
-  github: 'https://github.com/',
+  github: 'https://github.com/geechi653',
   resumeUrl: '/RagilMammadov-Resume.pdf',
   citizenship: 'U.S. Citizen',
   tagline: 'I build enterprise-grade full-stack systems and AI-driven products.',
